@@ -15,8 +15,7 @@ import operator
 import hashlib
 import xml.sax.saxutils as saxutils
 
-LanguageCodeMap = {
-    'aar': 'aa', 'abk': 'ab', 'afr': 'af', 'aka': 'ak', 'alb': 'sq', 'amh': 'am', 'ara': 'ar', 'arg': 'an',
+LanguageCodeMap = {    'aar': 'aa', 'abk': 'ab', 'afr': 'af', 'aka': 'ak', 'alb': 'sq', 'amh': 'am', 'ara': 'ar', 'arg': 'an',
     'arm': 'hy', 'asm': 'as', 'ava': 'av', 'ave': 'ae', 'aym': 'ay', 'aze': 'az', 'bak': 'ba', 'bam': 'bm',
     'baq': 'eu', 'bel': 'be', 'ben': 'bn', 'bih': 'bh', 'bis': 'bi', 'bod': 'bo', 'bos': 'bs', 'bre': 'br',
     'bul': 'bg', 'bur': 'my', 'cat': 'ca', 'ces': 'cs', 'cha': 'ch', 'che': 'ce', 'chi': 'zh', 'chu': 'cu',
@@ -529,9 +528,12 @@ def ComputePlayReadyHeader(header_spec, kid_hex, key_hex):
         if (ord(header[0]) == 0xff and ord(header[1]) == 0xfe) or (ord(header[0]) == 0xfe and ord(header[1]) == 0xff):
             # this is UTF-16 XML
             header_xml = header.decode('utf-16')
-        elif header[0] == '<':
+        elif header[0] == '<' and ord(header[1]) != 0x00:
             # this is ASCII or UTF-8 XML
             header_xml = header.decode('utf-8')
+        elif header[0] == '<' and ord(header[1]) == 0x00:
+            # this UTF-16LE XML without charset header
+            header_xml = header.decode('utf-16-le')
         if header_xml is not None:
             header = WrapPlayreadyHeaderXml(header_xml)
         return header

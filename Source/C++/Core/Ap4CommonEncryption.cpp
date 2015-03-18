@@ -1965,7 +1965,7 @@ AP4_CencSampleInfoTable::Create(AP4_ProtectedSampleDescription* sample_descripti
     
     // parse the crypto params
     if (sample_encryption_atom &&
-        sample_encryption_atom->GetOuter().GetFlags() & AP4_CENC_SAMPLE_ENCRYPTION_FLAG_OVERRIDE_TRACK_ENCRYPTION_DEFAULTS) {
+        (sample_encryption_atom->GetOuter().GetFlags() & AP4_CENC_SAMPLE_ENCRYPTION_FLAG_OVERRIDE_TRACK_ENCRYPTION_DEFAULTS)) {
         algorithm_id = sample_encryption_atom->GetAlgorithmId();
         iv_size      = sample_encryption_atom->GetIvSize();
     } else {
@@ -2358,7 +2358,7 @@ AP4_CencSampleInfoTable::GetSubsampleInfo(AP4_Cardinal sample_index,
 AP4_CencSampleEncryption::AP4_CencSampleEncryption(AP4_Atom&       outer,
                                                    AP4_Size        size,
                                                    AP4_ByteStream& stream) :
-    m_Outer(outer)
+    m_Outer(outer), m_SampleInfoCursor(0)
 {
     if (outer.GetFlags() & AP4_CENC_SAMPLE_ENCRYPTION_FLAG_OVERRIDE_TRACK_ENCRYPTION_DEFAULTS) {
         stream.ReadUI24(m_AlgorithmId);

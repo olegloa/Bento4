@@ -424,9 +424,14 @@ main(int argc, char** argv)
                 fprintf(stderr, "ERROR: invalid argument for --global-option option\n");
                 return 1;
             }
-            bool bool_value = false;
+            bool bool_value;
             if (AP4_CompareStrings(value, "true") == 0) {
                 bool_value = true;
+            } else if (AP4_CompareStrings(value, "false") == 0) {
+            	bool_value = false;
+            } else {
+                fprintf(stderr, "ERROR: invalid value (%s) for --global-option argument (%s)  \n", name, value);
+                return 1;
             }
             AP4_GlobalOptions::SetBool(name, bool_value);
         } else if (input_filename == NULL) {
