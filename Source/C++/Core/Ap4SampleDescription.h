@@ -40,7 +40,7 @@
 #include "Ap4AvccAtom.h"
 #include "Ap4HvccAtom.h"
 #include "Ap4DynamicCast.h"
-
+#include "Ap4Dec3Atom.h"
 /*----------------------------------------------------------------------
 |   class references
 +---------------------------------------------------------------------*/
@@ -387,6 +387,7 @@ class AP4_MpegSampleDescription : public AP4_SampleDescription
     // types
     typedef AP4_UI08 StreamType;
     typedef AP4_UI08 OTI;
+    typedef AP4_UI32 CLM;
     
     // class methods
     static const char* GetStreamTypeString(StreamType type);
@@ -395,6 +396,12 @@ class AP4_MpegSampleDescription : public AP4_SampleDescription
     // constructors & destructor
     AP4_MpegSampleDescription(AP4_UI32      format,
                               AP4_EsdsAtom* esds);
+
+    // constructors & destructor
+    AP4_MpegSampleDescription(AP4_UI32      format,
+    						  AP4_Dec3Atom* dec3,
+    						  AP4_Size      buffer_size);
+
     AP4_MpegSampleDescription(AP4_UI32              format,
                               StreamType            stream_type,
                               OTI                   oti,
@@ -466,7 +473,13 @@ public:
                                    AP4_UI16      sample_size,
                                    AP4_UI16      channel_count,
                                    AP4_EsdsAtom* esds);
-                                   
+
+    AP4_MpegAudioSampleDescription(AP4_UI32      sample_rate,
+                                   AP4_UI16      sample_size,
+                                   AP4_UI16      channel_count,
+                                   AP4_Dec3Atom* dec3,
+                                   AP4_Size      buffer_size);
+
     AP4_MpegAudioSampleDescription(OTI                   oti,
                                    AP4_UI32              sample_rate,
                                    AP4_UI16              sample_size,
@@ -632,6 +645,26 @@ const AP4_UI08 AP4_MPEG4_AUDIO_OBJECT_TYPE_SLS_NON_CORE          = 38; /**< SLS 
 const AP4_UI08 AP4_MPEG4_AUDIO_OBJECT_TYPE_ER_AAC_ELD            = 39; /**< Error Resilient AAC ELD                      */
 const AP4_UI08 AP4_MPEG4_AUDIO_OBJECT_TYPE_SMR_SIMPLE            = 40; /**< SMR Simple                                   */
 const AP4_UI08 AP4_MPEG4_AUDIO_OBJECT_TYPE_SMR_MAIN              = 41; /**< SMR Main                                     */
+
+const AP4_MpegSampleDescription::CLM  SPEAKER_FRONT_LEFT 			= 0x1;
+const AP4_MpegSampleDescription::CLM  SPEAKER_FRONT_RIGHT           = 0x2;
+const AP4_MpegSampleDescription::CLM  SPEAKER_FRONT_CENTER          = 0x4;
+const AP4_MpegSampleDescription::CLM  SPEAKER_LOW_FREQUENCY         = 0x8;
+const AP4_MpegSampleDescription::CLM  SPEAKER_BACK_LEFT             = 0x10;
+const AP4_MpegSampleDescription::CLM  SPEAKER_BACK_RIGHT            = 0x20;
+const AP4_MpegSampleDescription::CLM  SPEAKER_FRONT_LEFT_OF_CENTER  = 0x40;
+const AP4_MpegSampleDescription::CLM  SPEAKER_FRONT_RIGHT_OF_CENTER = 0x80;
+const AP4_MpegSampleDescription::CLM  SPEAKER_BACK_CENTER           = 0x100;
+const AP4_MpegSampleDescription::CLM  SPEAKER_SIDE_LEFT             = 0x200;
+const AP4_MpegSampleDescription::CLM  SPEAKER_SIDE_RIGHT            = 0x400;
+const AP4_MpegSampleDescription::CLM  SPEAKER_TOP_CENTER            = 0x800;
+const AP4_MpegSampleDescription::CLM  SPEAKER_TOP_FRONT_LEFT        = 0x1000;
+const AP4_MpegSampleDescription::CLM  SPEAKER_TOP_FRONT_CENTER      = 0x2000;
+const AP4_MpegSampleDescription::CLM  SPEAKER_TOP_FRONT_RIGHT       = 0x4000;
+const AP4_MpegSampleDescription::CLM  SPEAKER_TOP_BACK_LEFT         = 0x8000;
+const AP4_MpegSampleDescription::CLM  SPEAKER_TOP_BACK_CENTER       = 0x10000U;
+const AP4_MpegSampleDescription::CLM  SPEAKER_TOP_BACK_RIGHT        = 0x20000U;
+const AP4_MpegSampleDescription::CLM  SPEAKER_RESERVED              = 0x80000000U;
 
 #endif // _AP4_SAMPLE_DESCRIPTION_H_
 

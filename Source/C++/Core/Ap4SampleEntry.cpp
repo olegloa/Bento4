@@ -35,6 +35,8 @@
 #include "Ap4TimsAtom.h"
 #include "Ap4SampleDescription.h"
 #include "Ap4AvccAtom.h"
+#include "Ap4Dec3Atom.h"
+#include "Ap4StszAtom.h"
 
 /*----------------------------------------------------------------------
 |   dynamic cast support
@@ -608,6 +610,30 @@ AP4_AudioSampleEntry::InspectFields(AP4_AtomInspector& inspector)
 AP4_SampleDescription*
 AP4_AudioSampleEntry::ToSampleDescription()
 {
+    AP4_Dec3Atom* dec3 = AP4_DYNAMIC_CAST(AP4_Dec3Atom, GetChild(AP4_ATOM_TYPE_DEC3));
+    if (dec3) {
+
+    	AP4_ContainerAtom* stsd = AP4_DYNAMIC_CAST(AP4_ContainerAtom, GetParent());
+        AP4_StszAtom* stsz = AP4_DYNAMIC_CAST(AP4_StszAtom, stsd->GetParent()->GetChild(AP4_ATOM_TYPE_STSZ));
+
+        AP4_Size buffer_size = 0;
+        if (stsz) {
+            for (AP4_Ordinal i = 1; i <= stsz->GetSampleCount(); i++) {
+                AP4_Size sample_size;
+                stsz->GetSampleSize(i, sample_size);
+                if (sample_size > buffer_size) {
+                	buffer_size = sample_size;
+                }
+            }
+        }
+
+    	return new AP4_MpegAudioSampleDescription(GetSampleRate(),
+            GetSampleSize(),
+            GetChannelCount(),
+            dec3,
+            buffer_size);
+    }
+
     // create a sample description
     return new AP4_GenericAudioSampleDescription(
         m_Type,

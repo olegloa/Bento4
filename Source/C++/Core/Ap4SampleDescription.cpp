@@ -35,6 +35,8 @@
 #include "Ap4SampleEntry.h"
 #include "Ap4AvccAtom.h"
 #include "Ap4HvccAtom.h"
+#include "Ap4Dec3Atom.h"
+#include "Ap4Utils.h"
 
 /*----------------------------------------------------------------------
 |   dynamic cast support
@@ -450,6 +452,126 @@ AP4_MpegSampleDescription::AP4_MpegSampleDescription(AP4_UI32      format,
     }
 }
 
+
+/*----------------------------------------------------------------------
+|   AP4_MpegSampleDescription::AP4_MpegSampleDescription
++---------------------------------------------------------------------*/
+AP4_MpegSampleDescription::AP4_MpegSampleDescription(AP4_UI32      format,
+                                                     AP4_Dec3Atom* dec3,
+                                                     AP4_Size      buffer_size) :
+    AP4_SampleDescription(TYPE_MPEG, format, NULL),
+    m_StreamType(0),
+    m_ObjectTypeId(0),
+    m_BufferSize(buffer_size),
+    m_MaxBitrate(0),
+    m_AvgBitrate(0)
+{
+	m_StreamType = AP4_STREAM_TYPE_AUDIO;
+	m_ObjectTypeId = AP4_OTI_EAC3_AUDIO;
+
+	AP4_UI32 channelMask = 0;
+
+	if (dec3) {
+		m_AvgBitrate = m_MaxBitrate = dec3->GetDataRate() * 1000;
+
+		for (unsigned int i = 0; i < dec3->GetSubStreams().ItemCount(); i++) {
+			AP4_Dec3Atom::SubStream entry = dec3->GetSubStreams()[i];
+			if (entry.num_dep_sub > 0) {
+				// Lc/Rc pair
+				if (entry.chan_loc & 1) {
+					channelMask |= SPEAKER_FRONT_LEFT_OF_CENTER | SPEAKER_FRONT_RIGHT_OF_CENTER;
+				}
+				// Lrs/Rrs pair
+				if (entry.chan_loc & 2) {
+					channelMask |= SPEAKER_BACK_LEFT | SPEAKER_BACK_RIGHT;
+				}
+				// Cs
+				if (entry.chan_loc & 4) {
+					channelMask |= SPEAKER_BACK_CENTER;
+				}
+				// Ts
+				if (entry.chan_loc & 8) {
+					channelMask |= SPEAKER_TOP_CENTER;
+				}
+				// Lsd/Rsd pair
+				if (entry.chan_loc & 16) {
+					channelMask |= SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+				}
+				// Lw/Rw pair
+				if (entry.chan_loc & 32) {
+					channelMask |= SPEAKER_SIDE_LEFT | SPEAKER_SIDE_RIGHT;
+				}
+				// Lvh/Rvh pair
+				if (entry.chan_loc & 64) {
+					channelMask |= SPEAKER_TOP_FRONT_LEFT | SPEAKER_TOP_FRONT_RIGHT;
+				}
+				// Cvh
+				if (entry.chan_loc & 128) {
+					channelMask |= SPEAKER_TOP_CENTER;
+				}
+				// LFE2
+				if (entry.chan_loc & 256) {
+					channelMask |= SPEAKER_LOW_FREQUENCY;
+				}
+			}
+
+			switch (entry.acmod)
+			{
+				case 0:
+					channelMask |= SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+					break;
+				case 1:
+					channelMask |= SPEAKER_FRONT_CENTER;
+					break;
+				case 2: //2/0; L, R
+					channelMask |= SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT;
+					break;
+				case 3: //3/0; L, C, R
+					channelMask |= SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER;
+					break;
+				case 4: //2/1; L, R, S
+					channelMask |= SPEAKER_FRONT_LEFT |	SPEAKER_FRONT_RIGHT | SPEAKER_LOW_FREQUENCY;
+					break;
+				case 5: //3/1; L, C, R, S
+					channelMask |= SPEAKER_FRONT_LEFT |	SPEAKER_FRONT_RIGHT | SPEAKER_FRONT_CENTER | SPEAKER_LOW_FREQUENCY;
+					break;
+				case 6: //2/2; L, R, SL, SR
+					channelMask |= SPEAKER_FRONT_LEFT | SPEAKER_FRONT_RIGHT | SPEAKER_BACK_RIGHT | SPEAKER_BACK_LEFT;
+					break;
+				case 7: //3/2; L, C, R, SL, SR
+					channelMask |= SPEAKER_FRONT_LEFT | SPEAKER_FRONT_CENTER | SPEAKER_FRONT_RIGHT |
+						SPEAKER_BACK_RIGHT | SPEAKER_BACK_LEFT;
+					break;
+			}
+
+			if (entry.lfeon == 1) {
+				channelMask |= SPEAKER_LOW_FREQUENCY;
+			}
+		}
+	}
+
+	//SubFormat - Dolby Digital Plus UUID
+	AP4_Byte uuid[] = {
+		0xAF, 0x87, 0xFB, 0xA7, 0x02, 0x2D, 0xFB, 0x42, 0xA4, 0xD4, 0x05, 0xCD, 0x93, 0x84, 0x3B, 0xDD
+	};
+
+	m_DecoderInfo.SetDataSize(22 + (dec3 ? dec3->GetRawBytes().GetDataSize() : 0));
+	AP4_Byte* data = m_DecoderInfo.UseData();
+	*data++ = 0x00;
+	*data++ = 0x06; // //1536 wSamplesPerBlock - little endian
+	*data++ = (AP4_Byte) ((channelMask      ) & 0xFF);
+	*data++ = (AP4_Byte) ((channelMask >>  8) & 0xFF);
+	*data++ = (AP4_Byte) ((channelMask >> 16) & 0xFF);
+	*data++ = (AP4_Byte) ((channelMask >> 24) & 0xFF);
+
+	AP4_CopyMemory(data, uuid, sizeof(uuid));
+	data += sizeof(uuid) / sizeof(uuid[0]);
+
+	if (dec3) {
+		AP4_CopyMemory(data, dec3->GetRawBytes().GetData(), dec3->GetRawBytes().GetDataSize());
+	}
+}
+
 /*----------------------------------------------------------------------
 |   AP4_MpegSampleDescription::AP4_MpegSampleDescription
 +---------------------------------------------------------------------*/
@@ -549,6 +671,58 @@ AP4_MpegAudioSampleDescription::AP4_MpegAudioSampleDescription(
     AP4_MpegSampleDescription(AP4_ATOM_TYPE_MP4A, esds),
     AP4_AudioSampleDescription(sample_rate, sample_size, channel_count)
 {
+}
+
+/*----------------------------------------------------------------------
+|   AP4_MpegAudioSampleDescription::AP4_MpegAudioSampleDescription
++---------------------------------------------------------------------*/
+AP4_MpegAudioSampleDescription::AP4_MpegAudioSampleDescription(
+    AP4_UI32  sample_rate,
+    AP4_UI16  sample_size,
+    AP4_UI16  channel_count,
+    AP4_Dec3Atom* dec3,
+    AP4_Size buffer_size) :
+    AP4_MpegSampleDescription(AP4_ATOM_TYPE_EC_3, dec3, buffer_size),
+    AP4_AudioSampleDescription(sample_rate, sample_size, channel_count)
+{
+	if (dec3) {
+		m_ChannelCount = 0; //full bandwidth channels
+		for (unsigned int i = 0; i < dec3->GetSubStreams().ItemCount(); i++) {
+			AP4_Dec3Atom::SubStream entry = dec3->GetSubStreams()[i];
+			switch (entry.acmod)
+			{
+				case 0:
+					m_ChannelCount += 2;
+					break;
+				case 1:
+					m_ChannelCount += 1;
+					break;
+				case 2: //2/0; L, R
+					m_ChannelCount += 2;
+					break;
+				case 3: //3/0; L, C, R
+					m_ChannelCount += 3;
+					break;
+				case 4: //2/1; L, R, S
+					m_ChannelCount += 3;
+					break;
+				case 5: //3/1; L, C, R, S
+					m_ChannelCount += 4;
+					break;
+				case 6: //2/2; L, R, SL, SR
+					m_ChannelCount += 4;
+					break;
+				case 7: //3/2; L, C, R, SL, SR
+					m_ChannelCount += 5;
+					break;
+
+			}
+
+			if (entry.lfeon == 1) {
+				m_ChannelCount++;
+			}
+		}
+	}
 }
 
 /*----------------------------------------------------------------------
@@ -806,5 +980,3 @@ AP4_SubtitleSampleDescription::ToAtom() const
                                        m_SchemaLocation.GetChars(),
                                        m_ImageMimeType.GetChars());
 }
-    
-
