@@ -444,15 +444,29 @@ def OutputSmooth(options, audio_tracks, video_tracks):
         qindex = 0
         for video_track in video_tracks:
             sample_desc = video_track.info['sample_descriptions'][0]
-            codec_private_data = '00000001'+sample_desc['avc_sps'][0]+'00000001'+sample_desc['avc_pps'][0]
-            xml.SubElement(stream_index,
+            codec = sample_desc['coding']
+            if codec == 'avc1':            
+                codec_private_data = '00000001'+sample_desc['avc_sps'][0]+'00000001'+sample_desc['avc_pps'][0]
+                xml.SubElement(stream_index,
+                               'QualityLevel',
+                               Bitrate=str(video_track.bandwidth),
+                               MaxWidth=str(video_track.width),
+                               MaxHeight=str(video_track.height),
+                               FourCC="H264",
+                               CodecPrivateData=codec_private_data,
+                               Index=str(qindex))
+            elif codec == 'hvc1':
+                codec_private_data = sample_desc['hevc_raw']
+                xml.SubElement(stream_index,
                            'QualityLevel',
                            Bitrate=str(video_track.bandwidth),
                            MaxWidth=str(video_track.width),
                            MaxHeight=str(video_track.height),
-                           FourCC="H264",
+                           FourCC="hevc",
                            CodecPrivateData=codec_private_data,
                            Index=str(qindex))
+            else:
+                raise Exception('ERROR: unknown coding scheme ' + codec)
             qindex += 1
 
         for duration in video_tracks[0].segment_scaled_durations:
