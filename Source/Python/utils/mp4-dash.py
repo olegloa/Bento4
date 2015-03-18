@@ -455,7 +455,7 @@ def OutputSmooth(options, audio_tracks, video_tracks):
                                FourCC="H264",
                                CodecPrivateData=codec_private_data,
                                Index=str(qindex))
-            elif codec == 'hvc1':
+            elif codec == 'hvc1' or codec == 'hev1':
                 codec_private_data = sample_desc['hevc_raw']
                 xml.SubElement(stream_index,
                            'QualityLevel',
