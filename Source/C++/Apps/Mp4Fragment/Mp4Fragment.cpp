@@ -44,6 +44,7 @@
 /*----------------------------------------------------------------------
 |   constants
 +---------------------------------------------------------------------*/
+const unsigned int AP4_FRAGMENTER_DEFAULT_TIMESCALE = 10000000;
 const unsigned int AP4_FRAGMENTER_DEFAULT_FRAGMENT_DURATION   = 2000; // ms
 const unsigned int AP4_FRAGMENTER_MAX_AUTO_FRAGMENT_DURATION  = 15000; 
 
@@ -281,12 +282,14 @@ Fragment(AP4_File&                input_file,
         AP4_Track* output_track = new AP4_Track(track->GetType(),
                                                 sample_table,
                                                 track->GetId(),
-                                                timescale?timescale:1000,
+                                                timescale,
                                                 AP4_ConvertTime(track->GetDuration(),
                                                                 input_movie->GetTimeScale(),
-                                                                timescale?timescale:1000),
-                                                timescale?timescale:track->GetMediaTimeScale(),
-                                                0,//track->GetMediaDuration(),
+                                                                timescale),
+                                                timescale,
+                                                AP4_ConvertTime(track->GetMediaDuration(),
+                                                				track->GetMediaTimeScale(),
+                                                                timescale),
                                                 track->GetTrackLanguage(),
                                                 track->GetWidth(),
                                                 track->GetHeight());
@@ -1045,7 +1048,7 @@ main(int argc, char** argv)
     }
     
     // fragment the file
-    Fragment(input_file, *output_stream, cursors, fragment_duration, timescale, selected_track_id, create_segment_index);
+    Fragment(input_file, *output_stream, cursors, fragment_duration, timescale ? timescale : AP4_FRAGMENTER_DEFAULT_TIMESCALE, selected_track_id, create_segment_index);
     
     // cleanup and exit
     if (input_stream)  input_stream->Release();
