@@ -814,11 +814,13 @@ AP4_CencEncryptingProcessor::Initialize(AP4_AtomParent&                  top_lev
         delete ftyp;
         ftyp = new_ftyp;
     } else {
-        AP4_UI32 compat = AP4_FILE_BRAND_ISO6;
+        AP4_Array<AP4_UI32> compatible_brands;
+        compatible_brands.Append(AP4_FILE_BRAND_ISO6);
         if (m_Variant == AP4_CENC_VARIANT_PIFF_CBC || m_Variant == AP4_CENC_VARIANT_PIFF_CTR) {
-            compat = AP4_PIFF_BRAND;
+        	compatible_brands.Append(AP4_PIFF_BRAND);
+            compatible_brands.Append(AP4_FTYP_BRAND_MSDH);
         }
-        ftyp = new AP4_FtypAtom(AP4_FTYP_BRAND_MP42, 0, &compat, 1);
+        ftyp = new AP4_FtypAtom(AP4_FTYP_BRAND_MP42, 0, &compatible_brands[0], compatible_brands.ItemCount());
     }
     
     // insert the ftyp atom as the first child

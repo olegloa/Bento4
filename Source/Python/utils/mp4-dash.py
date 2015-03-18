@@ -145,19 +145,13 @@ def AddSegmentTemplate(options, container, init_segment_url, media_url_template_
         
         segment_template = xml.SubElement(*args, **kwargs)
         segment_timeline = xml.SubElement(segment_template, 'SegmentTimeline')
-        repeat_count = 0
+        time_stamp = 0
         for i in range(len(track.segment_scaled_durations)):
             duration = track.segment_scaled_durations[i]
-            if i + 1 < len(track.segment_scaled_durations) and duration == track.segment_scaled_durations[i + 1]:
-                repeat_count += 1
-            else:
-                args = [segment_timeline, 'S']
-                kwargs = {'d': str(duration)}
-                if repeat_count:
-                    kwargs['r'] = str(repeat_count)
-
-                xml.SubElement(*args, **kwargs)
-                repeat_count = 0
+            args = [segment_timeline, 'S']
+            kwargs = {'d': str(duration), 't': str(time_stamp)}
+            time_stamp += duration
+            xml.SubElement(*args, **kwargs)
     else:
         xml.SubElement(container,
                        'SegmentTemplate',
