@@ -30,6 +30,8 @@
 |   includes
 +---------------------------------------------------------------------*/
 #include "Ap4TkhdAtom.h"
+#include "Ap4TrakAtom.h"
+#include "Ap4MvhdAtom.h"
 #include "Ap4AtomFactory.h"
 #include "Ap4Utils.h"
 
@@ -88,6 +90,11 @@ AP4_TkhdAtom::AP4_TkhdAtom(AP4_UI32 creation_time,
 
     m_Reserved2[0] = 0;
     m_Reserved2[1] = 0;
+
+    if (duration > 0xFFFFFFFF) {
+        m_Version = 1;
+        m_Size32 += 12;
+    }
 }
 
 /*----------------------------------------------------------------------
