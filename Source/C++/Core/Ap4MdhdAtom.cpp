@@ -173,6 +173,9 @@ AP4_MdhdAtom::InspectFields(AP4_AtomInspector& inspector)
     inspector.AddField("duration", m_Duration);
     inspector.AddField("duration(ms)", GetDurationMs());
     inspector.AddField("language", m_Language.GetChars());
-
+    if (inspector.GetVerbosity() > 2) {
+        inspector.AddField("creation_time", m_CreationTime);
+        inspector.AddField("modification_time", m_ModificationTime);
+    }
     return AP4_SUCCESS;
 }

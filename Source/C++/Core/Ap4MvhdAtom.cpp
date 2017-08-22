@@ -203,6 +203,23 @@ AP4_MvhdAtom::InspectFields(AP4_AtomInspector& inspector)
     inspector.AddField("timescale", m_TimeScale);
     inspector.AddField("duration", m_Duration);
     inspector.AddField("duration(ms)", GetDurationMs());
-
+    if (inspector.GetVerbosity() > 1) {
+        inspector.AddField("volume", m_Volume);
+        inspector.AddField("rate", m_Rate);
+        inspector.AddField("next_track_id", m_NextTrackId);
+    }
+    if (inspector.GetVerbosity() > 2) {
+        inspector.AddField("creation_time", m_CreationTime);
+        inspector.AddField("modification_time", m_ModificationTime);
+        inspector.AddFieldF("matrix_0", (float)m_Matrix[0]/65536.0f);
+        inspector.AddFieldF("matrix_1", (float)m_Matrix[1]/65536.0f);
+        inspector.AddFieldF("matrix_2", (float)m_Matrix[2]/65536.0f);
+        inspector.AddFieldF("matrix_3", (float)m_Matrix[3]/65536.0f);
+        inspector.AddFieldF("matrix_4", (float)m_Matrix[4]/65536.0f);
+        inspector.AddFieldF("matrix_5", (float)m_Matrix[5]/65536.0f);
+        inspector.AddFieldF("matrix_6", (float)m_Matrix[6]/65536.0f);
+        inspector.AddFieldF("matrix_7", (float)m_Matrix[7]/65536.0f);
+        inspector.AddFieldF("matrix_8", (float)m_Matrix[8]/65536.0f);
+    }
     return AP4_SUCCESS;
 }

@@ -222,10 +222,14 @@ AP4_TkhdAtom::InspectFields(AP4_AtomInspector& inspector)
     inspector.AddField("enabled", ((m_Flags & AP4_TKHD_FLAG_TRACK_ENABLED) ? 1 : 0), AP4_AtomInspector::HINT_BOOLEAN);
     inspector.AddField("id", m_TrackId);
     inspector.AddField("duration", m_Duration);
-    if (inspector.GetVerbosity() > 0) {
+    if (inspector.GetVerbosity() > 1) {
         inspector.AddField("volume", m_Volume);
         inspector.AddField("layer", m_Layer);
         inspector.AddField("alternate_group", m_AlternateGroup);
+    }
+    if (inspector.GetVerbosity() > 2) {
+        inspector.AddField("creation_time", m_CreationTime);
+        inspector.AddField("modification_time", m_ModificationTime);
         inspector.AddFieldF("matrix_0", (float)m_Matrix[0]/65536.0f);
         inspector.AddFieldF("matrix_1", (float)m_Matrix[1]/65536.0f);
         inspector.AddFieldF("matrix_2", (float)m_Matrix[2]/65536.0f);
