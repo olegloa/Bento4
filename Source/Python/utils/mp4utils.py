@@ -449,7 +449,10 @@ class Mp4Track:
         # compute the bandwidth
         if options.min_buffer_time == 0.0:
             options.min_buffer_time = self.average_segment_duration
-        self.bandwidth = ComputeBandwidth(options.min_buffer_time, self.segment_sizes, self.segment_durations)
+
+        self.bandwidth = self.average_segment_bitrate
+        if self.bandwidth == 0:
+            self.bandwidth = ComputeBandwidth(options.min_buffer_time, self.segment_sizes, self.segment_durations)
 
         if self.type == 'video':
             # compute the frame rate
