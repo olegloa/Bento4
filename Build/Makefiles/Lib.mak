@@ -104,6 +104,7 @@ CORE_SOURCES = 								\
     Ap4Piff.cpp                             \
     Ap4TfraAtom.cpp                         \
     Ap4MfroAtom.cpp							\
+    Ap4MdatAtom.cpp							\
     Ap4TfdtAtom.cpp							\
     Ap4CommonEncryption.cpp					\
     Ap4SaioAtom.cpp							\

@@ -91,6 +91,7 @@
 #include "Ap4Piff.h"
 #include "Ap4TfraAtom.h"
 #include "Ap4MfroAtom.h"
+#include "Ap4MdatAtom.h"
 #include "Ap4TfdtAtom.h"
 #include "Ap4TencAtom.h"
 #include "Ap4SencAtom.h"
@@ -767,8 +768,11 @@ AP4_AtomFactory::CreateAtomFromStream(AP4_ByteStream& stream,
 
           case AP4_ATOM_TYPE_FREE:
           case AP4_ATOM_TYPE_WIDE:
+              // generic atoms
+        	break;
+
           case AP4_ATOM_TYPE_MDAT:
-            // generic atoms
+          	atom = new AP4_MdatAtom(size_64, stream);
             break;
             
           default: {

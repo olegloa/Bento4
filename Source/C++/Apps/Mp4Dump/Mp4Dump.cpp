@@ -339,6 +339,12 @@ main(int argc, char** argv)
     // inspect the atoms one by one
     AP4_Atom* atom;
     AP4_DefaultAtomFactory atom_factory;
+
+    AP4_MoovAtom *moov = NULL;
+    AP4_ContainerAtom *moof = NULL;
+    AP4_Position atom_offset = 0;
+    AP4_Position base_data_offset;
+
     while (atom_factory.CreateAtomFromStream(*input, atom) == AP4_SUCCESS) {
         // remember the current stream position because the Inspect method
         // may read from the stream (there may be stream references in some
@@ -346,15 +352,31 @@ main(int argc, char** argv)
         AP4_Position position;
         input->Tell(position);
 
-        // inspect the atom
-        atom->Inspect(*inspector);
+        if (atom->GetType() == AP4_ATOM_TYPE_MOOV) {
+        	delete moov;
+        	moov = AP4_DYNAMIC_CAST(AP4_MoovAtom, atom);
+            atom->Inspect(*inspector);
+        } else if (atom->GetType() == AP4_ATOM_TYPE_MOOF) {
+        	delete moof;
+        	moof = AP4_DYNAMIC_CAST(AP4_ContainerAtom, atom);
+        	base_data_offset = atom_offset;
+            atom->Inspect(*inspector);
+        } else if (inspector->GetVerbosity() > 3 && atom->GetType() == AP4_ATOM_TYPE_MDAT && moov != NULL && moof != NULL) {
+        	AP4_MdatAtom *mdat = AP4_DYNAMIC_CAST(AP4_MdatAtom, atom);
+        	mdat->Inspect(*inspector, moov, moof, base_data_offset);
+        	delete atom;
+        } else {
+            atom->Inspect(*inspector);
+        	delete atom;
+        }
 
         // restore the previous stream position
         input->Seek(position);
+        atom_offset = position;
+    }
+    delete moov;
+    delete moof;
 
-        // destroy the atom
-        delete atom;
-    }  
     if (output) output->Release();
 
     // inspect the track data if needed
