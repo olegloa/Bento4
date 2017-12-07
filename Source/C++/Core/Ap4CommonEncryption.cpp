@@ -213,6 +213,250 @@ AP4_CencAdvancedSubSampleMapper::GetSubSampleMap(AP4_DataBuffer&      sample_dat
 }
 
 /*----------------------------------------------------------------------
+|   AP4_CencCbcsSubSampleEncrypter::AP4_CencCbcsSubSampleEncrypter
++---------------------------------------------------------------------*/
+AP4_CencCbcsSubSampleMapper::AP4_CencCbcsSubSampleMapper(AP4_Size nalu_length_size, AP4_UI32 format, AP4_TrakAtom* trak) :
+    AP4_CencSubSampleMapper(nalu_length_size, format),
+    m_AvcParser(NULL),
+    m_HevcParser(NULL)
+{
+    if (!trak) return;
+    
+    // get the sample description atom
+    AP4_StsdAtom* stsd = AP4_DYNAMIC_CAST(AP4_StsdAtom, trak->FindChild("mdia/minf/stbl/stsd"));
+    if (!stsd) return;
+    
+    if (format == AP4_SAMPLE_FORMAT_AVC1 ||
+        format == AP4_SAMPLE_FORMAT_AVC2 ||
+        format == AP4_SAMPLE_FORMAT_AVC3 ||
+        format == AP4_SAMPLE_FORMAT_AVC4) {
+        // create the parser
+        m_AvcParser = new AP4_AvcFrameParser();
+        
+        // look for an avc sample description
+        AP4_AvccAtom* avcc = AP4_DYNAMIC_CAST(AP4_AvccAtom, stsd->FindChild("avc1/avcC"));
+        if (!avcc)    avcc = AP4_DYNAMIC_CAST(AP4_AvccAtom, stsd->FindChild("avc2/avcC"));
+        if (!avcc)    avcc = AP4_DYNAMIC_CAST(AP4_AvccAtom, stsd->FindChild("avc3/avcC"));
+        if (!avcc)    avcc = AP4_DYNAMIC_CAST(AP4_AvccAtom, stsd->FindChild("avc4/avcC"));
+        if (!avcc)    return;
+        
+        // parse the sps and pps if we have them
+        AP4_Array<AP4_DataBuffer>& sps_list = avcc->GetSequenceParameters();
+        for (unsigned int i=0; i<sps_list.ItemCount(); i++) {
+            AP4_DataBuffer& sps = sps_list[i];
+            ParseAvcData(sps.GetData(), sps.GetDataSize());
+        }
+        AP4_Array<AP4_DataBuffer>& pps_list = avcc->GetPictureParameters();
+        for (unsigned int i=0; i<pps_list.ItemCount(); i++) {
+            AP4_DataBuffer& pps = pps_list[i];
+            ParseAvcData(pps.GetData(), pps.GetDataSize());
+        }
+    } else if (format == AP4_SAMPLE_FORMAT_HEV1 ||
+               format == AP4_SAMPLE_FORMAT_HVC1) {
+        // create the parser
+        m_HevcParser = new AP4_HevcFrameParser();
+        
+        // look for an hevc sample description
+        AP4_HvccAtom* hvcc = AP4_DYNAMIC_CAST(AP4_HvccAtom, stsd->FindChild("hvc1/hvcC"));
+        if (!hvcc)    hvcc = AP4_DYNAMIC_CAST(AP4_HvccAtom, stsd->FindChild("hev1/hvcC"));
+        if (!hvcc)    return;
+        
+        // parse the vps, sps and pps if we have them
+        const AP4_Array<AP4_HvccAtom::Sequence>& sequence_list = hvcc->GetSequences();
+        for (unsigned int i=0; i<sequence_list.ItemCount(); i++) {
+            const AP4_Array<AP4_DataBuffer>& nalus = sequence_list[i].m_Nalus;
+            for (unsigned int j=0; j<nalus.ItemCount(); j++) {
+                ParseHevcData(nalus[j].GetData(), nalus[j].GetDataSize());
+            }
+        }
+    }
+}
+
+/*----------------------------------------------------------------------
+|   AP4_CencCbcsSubSampleEncrypter::~AP4_CencCbcsSubSampleEncrypter
++---------------------------------------------------------------------*/
+AP4_CencCbcsSubSampleMapper::~AP4_CencCbcsSubSampleMapper()
+{
+    delete m_AvcParser;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_CencCbcsSubSampleMapper::ParseAvcData
++---------------------------------------------------------------------*/
+AP4_Result 
+AP4_CencCbcsSubSampleMapper::ParseAvcData(const AP4_UI08* data, AP4_Size data_size)
+{
+    if (!m_AvcParser) return AP4_ERROR_INVALID_PARAMETERS;
+    
+    AP4_AvcFrameParser::AccessUnitInfo access_unit_info;
+    AP4_Result result = m_AvcParser->Feed(data, data_size, access_unit_info);
+    if (AP4_FAILED(result)) return result;
+    
+    // cleanup
+    access_unit_info.Reset();
+    
+    return AP4_SUCCESS;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_CencCbcsSubSampleMapper::ParseHevcData
++---------------------------------------------------------------------*/
+AP4_Result
+AP4_CencCbcsSubSampleMapper::ParseHevcData(const AP4_UI08* data, AP4_Size data_size)
+{
+    if (!m_HevcParser) return AP4_ERROR_INVALID_PARAMETERS;
+    
+    AP4_HevcFrameParser::AccessUnitInfo access_unit_info;
+    AP4_Result result = m_HevcParser->Feed(data, data_size, access_unit_info);
+    if (AP4_FAILED(result)) return result;
+    
+    // cleanup
+    access_unit_info.Reset();
+    
+    return AP4_SUCCESS;
+}
+
+/*----------------------------------------------------------------------
+|   AP4_CencCbcsSubSampleMapper::GetSubSampleMap
++---------------------------------------------------------------------*/
+AP4_Result 
+AP4_CencCbcsSubSampleMapper::GetSubSampleMap(AP4_DataBuffer&      sample_data,
+                                             AP4_Array<AP4_UI16>& bytes_of_cleartext_data,
+                                             AP4_Array<AP4_UI32>& bytes_of_encrypted_data)
+{
+    // setup direct pointers to the buffers
+    const AP4_UI08* in = sample_data.GetData();
+    
+    // process the sample data, one NALU at a time
+    const AP4_UI08* in_end = sample_data.GetData()+sample_data.GetDataSize();
+    while ((AP4_Size)(in_end-in) > 1+m_NaluLengthSize) {
+        unsigned int nalu_length;
+        switch (m_NaluLengthSize) {
+            case 1:
+                nalu_length = *in;
+                break;
+                
+            case 2:
+                nalu_length = AP4_BytesToUInt16BE(in);
+                break;
+                
+            case 4:
+                nalu_length = AP4_BytesToUInt32BE(in);
+                break;
+                
+            default:
+                return AP4_ERROR_INVALID_FORMAT;
+        }
+
+        unsigned int nalu_size = m_NaluLengthSize+nalu_length;
+        if (in+nalu_size > in_end) {
+            return AP4_ERROR_INVALID_FORMAT;
+        }
+
+        // skip encryption if the NAL unit should be left unencrypted for this specific format/type
+        bool skip = false;
+        if (m_Format == AP4_SAMPLE_FORMAT_AVC1 ||
+            m_Format == AP4_SAMPLE_FORMAT_AVC2 ||
+            m_Format == AP4_SAMPLE_FORMAT_AVC3 ||
+            m_Format == AP4_SAMPLE_FORMAT_AVC4) {
+            const AP4_UI08* nalu_data = &in[m_NaluLengthSize];
+            unsigned int nalu_type = nalu_data[0] & 0x1F;
+
+            if (nalu_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_NON_IDR_PICTURE ||
+                nalu_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_DATA_PARTITION_A   ||
+                nalu_type == AP4_AVC_NAL_UNIT_TYPE_CODED_SLICE_OF_IDR_PICTURE) {
+                // parse the NAL unit to get the slice header size
+                if (m_AvcParser == NULL) return AP4_ERROR_INTERNAL;
+                AP4_AvcSliceHeader slice_header;
+                unsigned int nalu_ref_idc = (nalu_data[0]>>5)&3;
+                AP4_Result result = m_AvcParser->ParseSliceHeader(&nalu_data[1],
+                                                                  nalu_length-1,
+                                                                  nalu_type,
+                                                                  nalu_ref_idc,
+                                                                  slice_header);
+                if (AP4_FAILED(result)) {
+                    return result;
+                }
+
+                // leave the slice header in the clear, including the NAL type
+                unsigned int cleartext_size = m_NaluLengthSize+1+(slice_header.size+7)/8;
+                unsigned int encrypted_size = nalu_size-cleartext_size;
+                
+                bytes_of_cleartext_data.Append(cleartext_size);
+                bytes_of_encrypted_data.Append(encrypted_size);
+            } else {
+                // this NAL unit does not have a slice header
+                skip = true;
+
+                // parse SPS and PPS NAL units
+                if (nalu_type == AP4_AVC_NAL_UNIT_TYPE_SPS ||
+                    nalu_type == AP4_AVC_NAL_UNIT_TYPE_PPS) {
+                    AP4_Result result = ParseAvcData(nalu_data, nalu_length);
+                    if (AP4_FAILED(result)) {
+                        return result;
+                    }
+                }
+            }
+        } else if (m_Format == AP4_SAMPLE_FORMAT_HEV1 ||
+                   m_Format == AP4_SAMPLE_FORMAT_HVC1) {
+            const AP4_UI08* nalu_data = &in[m_NaluLengthSize];
+            unsigned int nalu_type = (nalu_data[0] >> 1) & 0x3F;
+            
+            if (nalu_type < AP4_HEVC_NALU_TYPE_VPS_NUT) {
+                // this is a VCL NAL Unit
+                if (m_HevcParser == NULL) return AP4_ERROR_INTERNAL;
+                AP4_HevcSliceSegmentHeader slice_header;
+                AP4_Result result = m_HevcParser->ParseSliceSegmentHeader(&nalu_data[2], nalu_length-2, nalu_type, slice_header);
+                if (AP4_FAILED(result)) {
+                    return result;
+                }
+
+                // leave the slice header in the clear, including the NAL type
+                // NOTE: the slice header is always a multiple of 8 bits because of byte_alignment()
+                unsigned int header_size = slice_header.size/8;
+                unsigned int cleartext_size = m_NaluLengthSize+2+header_size;
+                //
+                unsigned int encrypted_size = nalu_size-cleartext_size;
+                
+                bytes_of_cleartext_data.Append(cleartext_size);
+                bytes_of_encrypted_data.Append(encrypted_size);
+            } else {
+                skip = true;
+
+                // parse VPS, SPS and PPS NAL units
+                if (nalu_type == AP4_HEVC_NALU_TYPE_VPS_NUT ||
+                    nalu_type == AP4_HEVC_NALU_TYPE_SPS_NUT ||
+                    nalu_type == AP4_HEVC_NALU_TYPE_PPS_NUT) {
+                    AP4_Result result = ParseHevcData(nalu_data, nalu_length);
+                    if (AP4_FAILED(result)) {
+                        return result;
+                    }
+                }
+            }
+        } else {
+            // only AVC and HEVC elementary streams are supported.
+            return AP4_ERROR_NOT_SUPPORTED;
+        }
+
+        if (skip) {
+            // use cleartext regions to cover the entire NAL unit
+            unsigned int range = nalu_size;
+            while (range) {
+                AP4_UI16 cleartext_size = (range <= 0xFFFF) ? range : 0xFFFF;
+                bytes_of_cleartext_data.Append(cleartext_size);
+                bytes_of_encrypted_data.Append(0);
+                range -= cleartext_size;
+            }
+        }
+        
+        // move the pointers
+        in += nalu_size;
+    }
+    
+    return AP4_SUCCESS;
+}
+
+/*----------------------------------------------------------------------
 |   AP4_CencSampleEncrypter::~AP4_CencSampleEncrypter
 +---------------------------------------------------------------------*/
 AP4_CencSampleEncrypter::~AP4_CencSampleEncrypter()
@@ -1213,9 +1457,23 @@ AP4_CencEncryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak)
             cipher_mode = AP4_BlockCipher::CTR;
             cipher_ctr_params.counter_size = 8;
             cipher_mode_params = &cipher_ctr_params;
-
+            cipher_iv_size = 8;
             track_encrypter = new AP4_CencTrackEncrypter(m_Variant,
                                                          1,
+                                                         cipher_iv_size,
+                                                         kid,
+                                                         0,
+                                                         NULL,
+                                                         0,
+                                                         0,
+                                                         entries,
+                                                         enc_format);
+            break;
+            
+        case AP4_CENC_VARIANT_PIFF_CBC:
+            cipher_mode = AP4_BlockCipher::CBC;
+            track_encrypter = new AP4_CencTrackEncrypter(m_Variant,
+                                                         2,
                                                          cipher_iv_size,
                                                          kid,
                                                          0,
@@ -1271,20 +1529,6 @@ AP4_CencEncryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak)
                                                          enc_format);
             break;
 
-        case AP4_CENC_VARIANT_PIFF_CBC:
-            cipher_mode = AP4_BlockCipher::CBC;
-            track_encrypter = new AP4_CencTrackEncrypter(m_Variant,
-                                                         2,
-                                                         cipher_iv_size,
-                                                         kid,
-                                                         0,
-                                                         NULL,
-                                                         0,
-                                                         0,
-                                                         entries, 
-                                                         enc_format);
-            break;
-            
         case AP4_CENC_VARIANT_MPEG_CBC1:
             cipher_mode = AP4_BlockCipher::CBC;
             track_encrypter = new AP4_CencTrackEncrypter(m_Variant,
@@ -1368,7 +1612,7 @@ AP4_CencEncryptingProcessor::CreateTrackHandler(AP4_TrakAtom* trak)
             if (nalu_length_size) {
                 AP4_CencSubSampleMapper* subsample_mapper = NULL;
                 if (m_Variant == AP4_CENC_VARIANT_MPEG_CBCS) {
-                    subsample_mapper = new AP4_CencAdvancedSubSampleMapper /* AP4_CencCbcsSubSampleMapper */(nalu_length_size, format);
+                    subsample_mapper = new AP4_CencCbcsSubSampleMapper(nalu_length_size, format, trak);
                 } else {
                     subsample_mapper = new AP4_CencBasicSubSampleMapper(nalu_length_size, format);
                 }

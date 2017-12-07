@@ -1258,7 +1258,8 @@ AP4_AtomMetaDataValue::ToInteger() const
 +---------------------------------------------------------------------*/
 AP4_DataAtom::AP4_DataAtom(const AP4_MetaData::Value& value) :
     AP4_Atom(AP4_ATOM_TYPE_DATA, AP4_ATOM_HEADER_SIZE),
-    m_DataType(DATA_TYPE_BINARY)
+    m_DataType(DATA_TYPE_BINARY),
+    m_Source(NULL)
 {
     AP4_MemoryByteStream* memory = new AP4_MemoryByteStream();
     AP4_Size payload_size = 8;
@@ -1334,7 +1335,8 @@ AP4_DataAtom::AP4_DataAtom(const AP4_MetaData::Value& value) :
 |   AP4_DataAtom::AP4_DataAtom
 +---------------------------------------------------------------------*/
 AP4_DataAtom::AP4_DataAtom(AP4_UI32 size, AP4_ByteStream& stream) :
-    AP4_Atom(AP4_ATOM_TYPE_DATA, size)
+    AP4_Atom(AP4_ATOM_TYPE_DATA, size),
+    m_Source(NULL)
 {
     if (size < AP4_ATOM_HEADER_SIZE+8) return;
 
@@ -1568,6 +1570,7 @@ AP4_3GppLocalizedStringAtom::Create(Type type, AP4_UI32 size, AP4_ByteStream& st
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version != 0) return NULL;
     return new AP4_3GppLocalizedStringAtom(type, size, version, flags, stream);
@@ -1661,6 +1664,7 @@ AP4_DcfStringAtom::Create(Type type, AP4_UI32 size, AP4_ByteStream& stream)
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version != 0) return NULL;
     return new AP4_DcfStringAtom(type, size, version, flags, stream);
@@ -1723,6 +1727,7 @@ AP4_DcfdAtom::Create(AP4_UI32 size, AP4_ByteStream& stream)
 {
     AP4_UI08 version;
     AP4_UI32 flags;
+    if (size < AP4_FULL_ATOM_HEADER_SIZE) return NULL;
     if (AP4_FAILED(AP4_Atom::ReadFullHeader(stream, version, flags))) return NULL;
     if (version != 0) return NULL;
     if (size != AP4_FULL_ATOM_HEADER_SIZE+4) return NULL;
