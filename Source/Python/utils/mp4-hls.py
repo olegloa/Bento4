@@ -27,13 +27,13 @@ from subtitles import *
 
 # setup main options
 VERSION = "1.1.0"
-SDK_REVISION = '621'
+SDK_REVISION = '622'
 SCRIPT_PATH = path.abspath(path.dirname(__file__))
 sys.path += [SCRIPT_PATH]
 
 #############################################
 def CreateSubtitlesPlaylist(playlist_filename, webvtt_filename, duration):
-    playlist = open(playlist_filename, 'w+')
+    playlist = open(playlist_filename, 'wb+')
     playlist.write('#EXTM3U\r\n')
     playlist.write('#EXT-X-TARGETDURATION:%d\r\n' % (duration))
     playlist.write('#EXT-X-VERSION:3\r\n')
@@ -183,17 +183,20 @@ def ProcessSource(options, media_info, out_dir):
     file_extension = media_info.get('file_extension', 'ts')
 
     kwargs = {
-        'index_filename':            path.join(out_dir, 'stream.m3u8'),
+        'index_filename':            path.join(out_dir, options.media_playlist_name),
         'segment_filename_template': path.join(out_dir, 'segment-%d.'+file_extension),
         'segment_url_template':      'segment-%d.'+file_extension,
         'show_info':                 True
     }
 
+    if options.base_url != "":
+        kwargs["segment_url_template"] = options.base_url+media_info["dir"]+'/'+'segment-%d.'+file_extension
+
     if options.hls_version != 3:
         kwargs['hls_version'] = str(options.hls_version)
 
     if options.hls_version >= 4:
-        kwargs['iframe_index_filename'] = path.join(out_dir, 'iframes.m3u8')
+        kwargs['iframe_index_filename'] = path.join(out_dir, options.iframe_playlist_name)
 
     if options.output_single_file:
         kwargs['segment_filename_template'] = path.join(out_dir, 'media.'+file_extension)
@@ -234,6 +237,7 @@ def ProcessSource(options, media_info, out_dir):
     json_info = Mp42Hls(options,
                         media_info['source'].filename,
                         **kwargs)
+
     media_info['info'] = json.loads(json_info, strict=False)
     if options.verbose:
         print json_info
@@ -340,7 +344,7 @@ def OutputHls(options, media_sources):
             ProcessSource(options, audio_track.media_info, out_dir)
 
     # start the master playlist
-    master_playlist = open(path.join(options.output_dir, options.master_playlist_name), "w+")
+    master_playlist = open(path.join(options.output_dir, options.master_playlist_name), "wb+")
     master_playlist.write("#EXTM3U\r\n")
     master_playlist.write('# Created with Bento4 mp4-hls.py version '+VERSION+'r'+SDK_REVISION+'\r\n')
 
@@ -402,7 +406,7 @@ def OutputHls(options, media_sources):
                                       audio_track.media_info['language_name'],
                                       audio_track.media_info['language'],
                                       extra_info,
-                                      audio_track.media_info['dir']+'/stream.m3u8')).encode('utf-8'))
+                                      options.base_url+audio_track.media_info['dir']+'/'+options.media_playlist_name)).encode('utf-8'))
             audio_groups.append({
                 'name':                group_name,
                 'codec':               group_codec,
@@ -457,7 +461,7 @@ def OutputHls(options, media_sources):
                 ext_x_stream_inf += ',SUBTITLES="subtitles"'
 
             master_playlist.write(ext_x_stream_inf+'\r\n')
-            master_playlist.write(media['dir']+'/stream.m3u8\r\n')
+            master_playlist.write(options.base_url+media['dir']+'/'+options.media_playlist_name+'\r\n')
 
     # write the I-FRAME playlist info
     if not audio_only and options.hls_version >= 4:
@@ -472,7 +476,7 @@ def OutputHls(options, media_sources):
                                         media_info['video']['codec'],
                                         int(media_info['video']['width']),
                                         int(media_info['video']['height']),
-                                        media['dir']+'/iframes.m3u8')
+                                        options.base_url+media['dir']+'/'+options.iframe_playlist_name)
             master_playlist.write(ext_x_i_frame_stream_inf+'\r\n')
 
 #############################################
@@ -510,6 +514,10 @@ def main():
                       help="HLS Version (default: 4)")
     parser.add_option('', '--master-playlist-name', dest="master_playlist_name", metavar="<filename>", default='master.m3u8',
                       help="Master Playlist name")
+    parser.add_option('', '--media-playlist-name', dest="media_playlist_name", metavar="<name>", default='stream.m3u8',
+                      help="Media Playlist name")
+    parser.add_option('', '--iframe-playlist-name', dest="iframe_playlist_name", metavar="<name>", default='iframes.m3u8',
+                      help="I-frame Playlist name")
     parser.add_option('', '--output-single-file', dest="output_single_file", action='store_true', default=False,
                       help="Store segment data in a single output file per input file")
     parser.add_option('', '--audio-format', dest="audio_format", default='packed',
@@ -536,6 +544,8 @@ def main():
                       help="Output the encryption key to a file (default: don't output the key). This option is only valid when the encryption key format is 'identity'")
     parser.add_option('', "--exec-dir", metavar="<exec_dir>", dest="exec_dir", default=default_exec_dir,
                       help="Directory where the Bento4 executables are located")
+    parser.add_option('', "--base-url", metavar="<base_url>", dest="base_url", default="",
+                      help="The base URL for the Media Playlists and TS files listed in the playlists. This is the prefix for the files.")
     (options, args) = parser.parse_args()
     if len(args) == 0:
         parser.print_help()
@@ -551,7 +561,7 @@ def main():
 
     # check options
     if options.output_encryption_key:
-        if options.encryption_key_uri:
+        if options.encryption_key_uri != "key.bin":
             sys.stderr.write("WARNING: the encryption key will not be output because a non-default key URI was specified\n")
             options.output_encryption_key = False
         if not options.encryption_key:

@@ -154,30 +154,6 @@ public:
         remove(m_Filename.GetChars());
     }
     
-    AP4_Result StoreSample(AP4_Sample& from_sample, AP4_Sample& to_sample) {
-        // clone the sample fields
-        to_sample = from_sample;
-        
-        // read the sample data
-        AP4_DataBuffer sample_data;
-        AP4_Result result = from_sample.ReadData(sample_data);
-        if (AP4_FAILED(result)) return result;
-        
-        // mark where we are going to store the sample data
-        AP4_Position position;
-        m_Stream->Tell(position);
-        to_sample.SetOffset(position);
-        
-        // write the sample data
-        result = m_Stream->Write(sample_data.GetData(), sample_data.GetDataSize());
-        if (AP4_FAILED(result)) return result;
-        
-        // update the stream for the new sample
-        to_sample.SetDataStream(*m_Stream);
-    
-        return AP4_SUCCESS;
-    }
-
     AP4_ByteStream* GetStream() { return m_Stream; }
     
 private:
@@ -388,6 +364,7 @@ AddH264Track(AP4_Movie&            movie,
             double frame_rate = atof(parameters[i].m_Value.GetChars());
             if (frame_rate == 0.0) {
                 fprintf(stderr, "ERROR: invalid video frame rate %s\n", parameters[i].m_Value.GetChars());
+                input->Release();
                 return;
             }
             video_frame_rate = (unsigned int)(1000.0*frame_rate);
@@ -587,7 +564,7 @@ AddH265Track(AP4_Movie&            movie,
     unsigned int video_width = 0;
     unsigned int video_height = 0;
     AP4_UI32     format = AP4_SAMPLE_FORMAT_HVC1;
-
+    
     AP4_ByteStream* input;
     AP4_Result result = AP4_FileByteStream::Create(input_name, AP4_FileByteStream::STREAM_MODE_READ, input);
     if (AP4_FAILED(result)) {
@@ -602,6 +579,7 @@ AddH265Track(AP4_Movie&            movie,
             double frame_rate = atof(parameters[i].m_Value.GetChars());
             if (frame_rate == 0.0) {
                 fprintf(stderr, "ERROR: invalid video frame rate %s\n", parameters[i].m_Value.GetChars());
+                input->Release();
                 return;
             }
             video_frame_rate = (unsigned int)(1000.0*frame_rate);
@@ -1038,14 +1016,16 @@ main(int argc, char** argv)
         return 1;
     }
     
-    // create a multimedia file
-    AP4_File file(movie);
+    {
+        // create a multimedia file
+        AP4_File file(movie);
 
-    // set the file type
-    file.SetFileType(AP4_FILE_BRAND_MP42, 1, &brands[0], brands.ItemCount());
+        // set the file type
+        file.SetFileType(AP4_FILE_BRAND_MP42, 1, &brands[0], brands.ItemCount());
 
-    // write the file to the output
-    AP4_FileWriter::Write(file, *output);
+        // write the file to the output
+        AP4_FileWriter::Write(file, *output);
+    }
     
     // cleanup
     delete sample_storage;

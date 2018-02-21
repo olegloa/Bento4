@@ -686,7 +686,7 @@ AP4_HevcPictureParameterSet::AP4_HevcPictureParameterSet() :
     num_tile_columns_minus1(0),
     num_tile_rows_minus1(0),
     uniform_spacing_flag(1),
-    loop_filter_across_tiles_enabled_flag(0),
+    loop_filter_across_tiles_enabled_flag(1),
     pps_loop_filter_across_slices_enabled_flag(0),
     deblocking_filter_control_present_flag(0),
     deblocking_filter_override_enabled_flag(0),
@@ -915,7 +915,7 @@ AP4_HevcSequenceParameterSet::Parse(const unsigned char* data, unsigned int data
         return AP4_ERROR_INVALID_FORMAT;
     }
     for (unsigned int i=0; i<num_short_term_ref_pic_sets; i++) {
-        result = parse_st_ref_pic_set(&short_term_ref_pic_sets[i], this, i, num_short_term_ref_pic_sets, bits);
+        AP4_Result result = parse_st_ref_pic_set(&short_term_ref_pic_sets[i], this, i, num_short_term_ref_pic_sets, bits);
         if (AP4_FAILED(result)) return result;
     }
     long_term_ref_pics_present_flag = bits.ReadBit();

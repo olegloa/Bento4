@@ -1,5 +1,6 @@
 Bento4 
-======
+=====
+[![Build Status](https://travis-ci.org/axiomatic-systems/Bento4.svg?branch=master)](https://travis-ci.org/axiomatic-systems/Bento4.svg?branch=master)
            
 Bento4 is a C++ class library and tools designed to read and write ISO-MP4 files. 
 This format is defined in international specifications ISO/IEC 14496-12, 14496-14 and 14496-15. 
@@ -74,7 +75,7 @@ Open the XCode project file Build/Targets/universal-apple-macosx/Bento4.xcodepro
 ### Windows using Visual Studio
 Open the Visual Studio solution file Build/Targets/x86-microsoft-win32-vs2010/Bento4.sln and build
 
-### Using SCons
+### On Linux and other platforms, using SCons
 Make sure you the the SCons build tool installed on your host machine (http://www.scons.org).
 To build the Debug configuration, simply enter the command:
 
@@ -90,7 +91,7 @@ To cross-compile for a target other than your host architecture, specify target=
 
 Example:
 
-```scons -u build_config=Release target=arm-unknown-linux```
+```scons -u build_config=Release target=x86_64-unknown-linux```
 
 ### Using CMake
 CMake can generate Makefiles, Xcode project files, or Visual Studios project files.
