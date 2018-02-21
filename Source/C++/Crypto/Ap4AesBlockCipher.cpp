@@ -1854,6 +1854,11 @@ AP4_AesCbcBlockCipher::Process(const AP4_UI08* input,
                                AP4_UI08*       output,
                                const AP4_UI08* iv)
 {
+	if (AP4_GlobalOptions::GetBool("clear-aes")) {
+		memcpy(output, input, input_size);
+	    return AP4_SUCCESS;
+	}
+
     // check the parameters
     if (input_size%AP4_AES_BLOCK_SIZE) {
         return AP4_ERROR_INVALID_PARAMETERS;
@@ -1926,7 +1931,12 @@ AP4_AesCtrBlockCipher::Process(const AP4_UI08* input,
                                AP4_UI08*       output,
                                const AP4_UI08* iv)
 {
-    // copy the iv into the counter
+	if (AP4_GlobalOptions::GetBool("clear-aes")) {
+		memcpy(output, input, input_size);
+	    return AP4_SUCCESS;
+	}
+
+	// copy the iv into the counter
     AP4_UI08 counter[AP4_AES_BLOCK_SIZE];
     if (iv) {
         AP4_CopyMemory(counter, iv, AP4_AES_BLOCK_SIZE);
